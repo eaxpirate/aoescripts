@@ -14,7 +14,6 @@ This is necessary because a shelf can only have 16 slots
 
 For example:
 
-    :::console
     # vgcreate myvg /dev/md0
     # for i in {00..50}; do
       lvcreate -n vm${i} -L 8g myvg
