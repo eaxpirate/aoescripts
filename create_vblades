@@ -1,0 +1,130 @@
+#!/usr/bin/env bash
+[ $BASH_VERSINFO -lt 4 ] && \
+  { echo "Your version of bash is too old, exiting"; exit 1; }
+#
+# This script will spit out some commands you can use to create 
+# vblade shelves based on a given number of logical volumes in a
+# given volume group;
+#
+# This is necessary because a shelf can only have 16 slots
+# 
+# -----------------------------------------
+# For example:
+#  # vgcreate myvg /dev/md0
+#  # for i in {00..50}; do
+#    lvcreate -n vm${i} -L 8g myvg
+#  done
+#  # VOLUME_GROUP="myvg" ./create_vblades
+# -----------------------------------------
+#
+#-----------------------------------------------------------------#
+# Leave this variable empty if you wish to allow any MAC to access
+# the storage pool
+#-----------------------------------------------------------------#
+MACS=()
+#MACS+=( '00:25:90:C6:31:44' )
+#MACS+=( '00:25:90:C6:31:4A' )
+#MACS+=( '00:25:90:C7:3D:F0' )
+#MACS+=( '00:25:90:C6:33:66' )
+
+DEBUG=${DEBUG:-`false`}
+MAXPERSHELF=16
+IFACE="${IFACE:-bond0}"
+VOLUME_GROUP="${VOLUME_GROUP:-vmstore}"
+ALLOWED_MACS="${ALLOWED_MACS:-`echo ${MACS[@]} | tr ' ' ','`}"
+
+function debug(){
+  echo "DEBUG -> '$@'"
+}
+
+function _die(){
+  echo "FATAL -> '$@'"
+  exit 1
+}
+
+function determine_vg(){
+  [[ $DEBUG ]] && debug "Using volume group: $VOLUME_GROUP"
+  vgdisplay $VOLUME_GROUP >/dev/null 2>&1 || \
+    _die "Volume group: $VOLUME_GROUP does not exist or cannot be stat'd."
+}
+
+function determine_lvs(){
+  VG=${1:?Volume group not specified}
+  [[ $DEBUG ]] && debug "Looking for logical volumes in $VG"
+  LVS=()
+  for LV in $(lvdisplay -C | awk '{if ($2 ~ "'"${VG}"'") print $1}'); do
+    LVS+=($LV)
+  done
+  [[ ${#LVS[@]} -lt 1 ]] && _die "No lvs found in volume group ${VG}"
+  [[ $DEBUG ]] && debug "Number of LVs found: ${#LVS[@]}"
+}
+
+function determine_shelves(){
+  FLOAT=false
+  [[ $DEBUG ]] && debug "Dividing ${#LVS[@]} 16 ways"
+  NUMGROUPS=$(perl -e 'print '"${#LVS[@]}"' / '"${MAXPERSHELF}"' . "\n";')
+  [[ $DEBUG ]] && debug "${#LVS[@]} 16 ways is $NUMGROUPS"
+  if [[ $NUMGROUPS =~ \. ]]; then
+    NUMGROUPS=$(( $(echo $NUMGROUPS | cut -d. -f1) + 1 ))
+    [[ $DEBUG ]] && debug "Float detected, Rounding up to $NUMGROUPS."
+    FLOAT=true
+  fi 
+  
+  COUNTER=0
+  for SHELF in `seq 0 $NUMGROUPS`; do
+    for item in ${LVS[@]}; do
+      [ $COUNTER -eq ${#LVS[@]} ] && break
+      C="vbladed ${SHELF} ${COUNTER} ${IFACE} /dev/mapper/${VG}-${LVS[$COUNTER]}"
+      if [[ "$ALLOWED_MACS"x != x ]]; then
+        C="$C -m ${ALLOWED_MACS}"
+      fi
+      echo $C 
+      [ ${COUNTER} -eq 0 ] && COUNTER=1
+      if (( ${COUNTER} % ${MAXPERSHELF} == 0 )); then
+        ((++SHELF))
+      fi
+      ((++COUNTER))
+    done 
+  done
+}
+
+function usage(){
+  echo
+  echo "-------------------------------"
+  echo "       Vbladed helper"
+  echo "-------------------------------"
+  echo
+  echo "Environment variables (and their defaults):"
+  echo "DEBUG=$DEBUG"
+  echo "VOLUME_GROUP=$VOLUME_GROUP"
+  echo "IFACE=$IFACE"
+  echo "ALLOWED_MACS=$ALLOWED_MACS"
+  echo
+  echo " To list commands you would use with the default VG (vmstore):"
+  echo "  $0"
+  echo
+  echo " To list commands you would use with a manually specified VG:"
+  echo "  VOLUME_GROUP=\"myvg\" $0"
+  echo
+  echo " Other examples:"
+  echo
+  echo "  DEBUG=true VOLUME_GROUP=\"myvg\" $0"
+  echo "  DEBUG=true VOLUME_GROUP=\"myvg\" IFACE=\"bond1\" $0"
+  echo "  DEBUG=true ALLOWED_MACS=\"de:ad:b3:3f:c4:c4\" IFACE=\"bond1\" $0"
+  echo "  ALLOWED_MACS=\"de:ad:b3:3f:c4:c4,f0:f0:b4:b3:b0:b5\" $0"
+  echo
+  exit 1
+}
+
+function main(){
+  determine_vg || _die "Could not determine a volume group"
+  determine_lvs $VOLUME_GROUP 
+  determine_shelves || _die "Could not parse the logical volumes into shelves"
+}
+
+if [[ $# -ge 1 ]]; then
+  usage
+else
+  main
+fi
+
