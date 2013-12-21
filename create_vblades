@@ -22,16 +22,19 @@
 # the storage pool
 #-----------------------------------------------------------------#
 MACS=()
-#MACS+=( '00:25:90:C6:31:44' )
-#MACS+=( '00:25:90:C6:31:4A' )
-#MACS+=( '00:25:90:C7:3D:F0' )
-#MACS+=( '00:25:90:C6:33:66' )
+MACS+=( '00:25:90:C6:31:44' )
+MACS+=( '00:25:90:C6:31:4A' )
+MACS+=( '00:25:90:C7:3D:F0' )
+MACS+=( '00:25:90:C6:33:66' )
 
+MACS=${MACS[*]}
+MACS=${MACS// /,}
 DEBUG=${DEBUG:-`false`}
 MAXPERSHELF=16
 IFACE="${IFACE:-bond0}"
 VOLUME_GROUP="${VOLUME_GROUP:-vmstore}"
-ALLOWED_MACS="${ALLOWED_MACS:-`echo ${MACS[@]} | tr ' ' ','`}"
+ALLOWED_MACS="${ALLOWED_MACS:-${MACS}}"
+# ALLOWED_MACS="${ALLOWED_MACS:-`echo ${MACS[@]} | tr ' ' ','`}"
 
 function debug(){
   echo "DEBUG -> '$@'"
