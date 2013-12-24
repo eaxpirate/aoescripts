@@ -74,10 +74,11 @@ function determine_shelves(){
   fi 
   
   COUNTER=0
-  for SHELF in `seq 0 $NUMGROUPS`; do
+  for SHELF in `seq $NUMGROUPS`; do
+    ICOUNTER=0
     for item in ${LVS[@]}; do
       [ $COUNTER -eq ${#LVS[@]} ] && break
-      C="vbladed ${SHELF} ${COUNTER} ${IFACE} /dev/mapper/${VG}-${LVS[$COUNTER]}"
+      C="vbladed ${SHELF} ${ICOUNTER} ${IFACE} /dev/mapper/${VG}-${LVS[$COUNTER]}"
       if [[ "$ALLOWED_MACS"x != x ]]; then
         C="$C -m ${ALLOWED_MACS}"
       fi
@@ -85,7 +86,11 @@ function determine_shelves(){
       [ ${COUNTER} -eq 0 ] && COUNTER=1
       if (( ${COUNTER} % ${MAXPERSHELF} == 0 )); then
         ((++SHELF))
+        ICOUNTER=0
+      else
+        ((++ICOUNTER))
       fi
+    
       ((++COUNTER))
     done 
   done
