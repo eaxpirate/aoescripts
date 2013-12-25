@@ -72,27 +72,21 @@ function determine_shelves(){
     [[ $DEBUG ]] && debug "Float detected, Rounding up to $NUMGROUPS."
     FLOAT=true
   fi 
-  
-  COUNTER=0
-  for SHELF in `seq $NUMGROUPS`; do
-    ICOUNTER=0
-    for item in ${LVS[@]}; do
-      [ $COUNTER -eq ${#LVS[@]} ] && break
-      C="vbladed ${SHELF} ${ICOUNTER} ${IFACE} /dev/mapper/${VG}-${LVS[$COUNTER]}"
-      if [[ "$ALLOWED_MACS"x != x ]]; then
-        C="$C -m ${ALLOWED_MACS}"
-      fi
-      echo $C 
-      [ ${COUNTER} -eq 0 ] && COUNTER=1
-      if (( ${COUNTER} % ${MAXPERSHELF} == 0 )); then
-        ((++SHELF))
-        ICOUNTER=0
-      else
-        ((++ICOUNTER))
-      fi
-    
-      ((++COUNTER))
-    done 
+
+  SHELF=$NUMGROUPS
+  SLOT=0
+  for ((i=$(( ${#LVS[@]} - 1 )); i>=0; i--)); do
+    if [ $SLOT == ${MAXPERSHELF} ]; then
+      SLOT=0
+      ((--SHELF))
+    fi
+    printf "[$i : ${LVS[$i]}] "
+    C="vbladed ${SHELF} ${SLOT} ${IFACE} /dev/mapper/${VG}-${LVS[$i]}"
+    if [[ "$ALLOWED_MACS"x != x ]]; then
+      C="$C -m ${ALLOWED_MACS}"
+    fi
+    echo $C 
+    ((++SLOT))
   done
 }
 
