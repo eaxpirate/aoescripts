@@ -34,7 +34,6 @@ MAXPERSHELF=16
 IFACE="${IFACE:-bond0}"
 VOLUME_GROUP="${VOLUME_GROUP:-vmstore}"
 ALLOWED_MACS="${ALLOWED_MACS:-${MACS}}"
-# ALLOWED_MACS="${ALLOWED_MACS:-`echo ${MACS[@]} | tr ' ' ','`}"
 
 function debug(){
   echo "DEBUG -> '$@'"
@@ -80,7 +79,6 @@ function determine_shelves(){
       SLOT=0
       ((--SHELF))
     fi
-    printf "[$i : ${LVS[$i]}] "
     C="vbladed ${SHELF} ${SLOT} ${IFACE} /dev/mapper/${VG}-${LVS[$i]}"
     if [[ "$ALLOWED_MACS"x != x ]]; then
       C="$C -m ${ALLOWED_MACS}"
